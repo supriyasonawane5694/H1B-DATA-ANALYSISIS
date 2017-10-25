@@ -1,0 +1,97 @@
+
+
+/*6) Find the percentage and the count of each case status on total applications for each year. Create a line graph depicting the 
+ * pattern of  All the cases over the period of time.*/
+package problem6;
+
+import java.io.*;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.conf.*;
+import org.apache.hadoop.fs.*;
+import org.apache.hadoop.mapreduce.lib.input.*;
+import org.apache.hadoop.mapreduce.lib.output.*;
+
+
+public class percentage_avg {
+	public static class MapClass extends Mapper<LongWritable,Text,Text,Text>
+	   {
+	      public void map(LongWritable key, Text value, Context context)
+	      {	    	  
+	         try{
+	            String[] str = value.toString().split("\t");	 
+	            String  year = str[7];
+	            String case_status = str[1];
+	            context.write(new Text(year),new Text(case_status));
+	            }
+	         catch(Exception e)
+	         {
+	            System.out.println(e.getMessage());
+	         }
+	      }
+	   }
+	  public static class ReduceClass extends Reducer<Text,Text,Text,Text>
+	   {
+		   
+		    
+		    public void reduce(Text key, Iterable<Text> values,Context context) throws IOException, InterruptedException {
+		      long totalcount= 0,certified_count=0,certified_withdrawn_count=0,denied_count=0,withdrawn_count=0;	
+		      double certified_AvgPerc=0,certified_withdrawn_AvgPerc=0,denied_AvgPerc=0,withdrawn_AvgPerc=0;	
+			       for (Text T : values)
+		         {    
+		        	 totalcount++;
+		        	 String case_status=T.toString();
+						if(case_status.equals("CERTIFIED"))
+						{
+							certified_count++;
+						}
+						else if(case_status.equals("CERTIFIED-WITHDRAWN"))
+						{
+							certified_withdrawn_count++;
+						}
+						else if(case_status.equals("WITHDRAWN"))
+						{
+							withdrawn_count++;
+						}
+						else
+						{
+							denied_count++;
+						}
+					}
+			       certified_AvgPerc = ((double)certified_count/(double)totalcount)*100;
+			       
+			       certified_withdrawn_AvgPerc = ((double)certified_withdrawn_count/(double)totalcount)*100;
+			       
+			       withdrawn_AvgPerc = ((double)withdrawn_count/(double)totalcount)*100;
+			       
+			       denied_AvgPerc = ((double)denied_count/(double)totalcount)*100;
+		        
+			       String COUNT=totalcount+"\t"+certified_count+"\t"+certified_AvgPerc+"\t"+certified_withdrawn_count+"\t"
+			       +certified_withdrawn_AvgPerc+"\t"+withdrawn_count+"\t"+withdrawn_AvgPerc+"\t"+denied_count+"\t"+ denied_AvgPerc;
+		     
+			       context.write(key,new Text(COUNT));
+		      }
+	   }
+	
+	  public static void main(String[] args) throws Exception {
+		    Configuration conf = new Configuration();
+		   
+		    Job job = new Job(conf, "H1B DATA");
+		    job.setJarByClass(percentage_avg.class);
+		    job.setMapperClass(MapClass.class);
+		    job.setMapOutputKeyClass(Text.class);
+		    job.setMapOutputValueClass(Text.class);
+		    job.setReducerClass(ReduceClass.class);
+		    job.setOutputKeyClass(Text.class);
+		    job.setOutputValueClass(Text.class);
+		    FileInputFormat.addInputPath(job, new Path(args[0]));
+		    FileOutputFormat.setOutputPath(job, new Path(args[1]));
+		    System.exit(job.waitForCompletion(true) ? 0 : 1);
+		  }
+
+
+}
+

@@ -1,0 +1,100 @@
+/*9) Which are the employers along with the number of petitions who have the success rate more than 70%  in petitions.
+(total petitions filed 1000 OR more than 1000) ?*/
+
+package problem9;
+import java.io.*;
+import java.util.TreeMap;
+
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.NullWritable;
+import org.apache.hadoop.io.DoubleWritable;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Mapper.Context;
+import org.apache.hadoop.conf.*;
+import org.apache.hadoop.fs.*;
+import org.apache.hadoop.mapreduce.lib.input.*;
+import org.apache.hadoop.mapreduce.lib.output.*;
+
+
+public class employer_success_rate {
+
+	
+	public static class MapClass extends Mapper<LongWritable,Text,Text,Text>
+	   {
+	      public void map(LongWritable key, Text value, Context context)
+	      {	    	  
+	         try{
+	            String[] str = value.toString().split("\t");	 
+	            String  employer_name = str[2];
+	            String case_status = str[1];
+	            context.write(new Text(employer_name),new Text(case_status));
+	            }
+	         catch(Exception e)
+	         {
+	            System.out.println(e.getMessage());
+	         }
+	      }
+	   }
+	 public static class ReduceClass extends Reducer<Text,Text,NullWritable,Text>
+	   {
+		  TreeMap<Double, String> MapOut = new TreeMap<Double,String>();
+		    
+		    public void reduce(Text key, Iterable<Text> values,Context context) throws IOException, InterruptedException {
+		      long totalcount= 0,certified_count=0,certified_withdrawn_count=0 ,Total=0;
+		      double emp_SuccessRate=0;	
+		      String mykey = key.toString();
+			       for (Text T : values)
+		         {    
+		        	 totalcount++;
+		        	 String case_status=T.toString();
+						if(case_status.equals("CERTIFIED"))
+						{
+							certified_count++;
+						}
+						else if(case_status.equals("CERTIFIED-WITHDRAWN"))
+						{
+							certified_withdrawn_count++;
+						}
+			      }
+			      
+				      if(totalcount>=1000) 
+				      {
+				    	  Total = certified_count+certified_withdrawn_count;
+				    	  emp_SuccessRate =((double)Total/(double)totalcount)*100;
+				      }
+				      if(emp_SuccessRate>=70)
+				      {
+				    	  String OUTPUT = mykey+","+totalcount+","+Total+","+emp_SuccessRate;
+				    	  MapOut.put(emp_SuccessRate,OUTPUT);
+				      }
+	     }
+		    protected void cleanup(Context context) throws IOException, InterruptedException{
+				for(String val : MapOut.descendingMap().values()){
+					context.write(NullWritable.get(),new Text(val));
+      }
+	}
+}
+		    public static void main(String[] args) throws Exception {
+			    Configuration conf = new Configuration();
+			    Job job = new Job(conf, "H1B DATA");
+			    job.setJarByClass(employer_success_rate.class);
+			    
+			    job.setMapperClass(MapClass.class);
+			    job.setReducerClass(ReduceClass.class);
+			    
+			    job.setMapOutputKeyClass(Text.class);
+			    job.setMapOutputValueClass(Text.class);
+			    
+			    job.setOutputKeyClass(NullWritable.class);
+			    job.setOutputValueClass(Text.class);
+			    
+			    FileInputFormat.addInputPath(job, new Path(args[0]));
+			    FileOutputFormat.setOutputPath(job, new Path(args[1]));
+			    System.exit(job.waitForCompletion(true) ? 0 : 1);
+			  }
+		}
+
+
